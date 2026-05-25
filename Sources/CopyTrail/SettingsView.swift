@@ -3,11 +3,13 @@ import KeyboardShortcuts
 
 struct SettingsView: View {
     @ObservedObject var config: Config
+    @ObservedObject var history: HistoryStore
     var onClose: () -> Void
 
     @State private var draftMaxHistory: Int = Config.defaultMaxHistory
     @State private var draftMaxImageMB: Int = Config.defaultMaxImageMB
     @State private var error: String?
+    @State private var showClearConfirm = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -31,6 +33,19 @@ struct SettingsView: View {
                 Section("Global hotkey") {
                     KeyboardShortcuts.Recorder(for: .showCopyTrail)
                 }
+                Section("History") {
+                    HStack {
+                        Text("\(history.entries.count) entries stored")
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Button(role: .destructive) {
+                            showClearConfirm = true
+                        } label: {
+                            Text("Clear history…")
+                        }
+                        .disabled(history.entries.isEmpty)
+                    }
+                }
             }
             .formStyle(.grouped)
 
@@ -50,6 +65,16 @@ struct SettingsView: View {
         .onAppear {
             draftMaxHistory = config.maxHistory
             draftMaxImageMB = config.maxImageMB
+        }
+        .confirmationDialog(
+            "Clear all clipboard history?",
+            isPresented: $showClearConfirm,
+            titleVisibility: .visible
+        ) {
+            Button("Clear", role: .destructive) { history.clear() }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("\(history.entries.count) entries (text + images) will be removed. This cannot be undone.")
         }
     }
 

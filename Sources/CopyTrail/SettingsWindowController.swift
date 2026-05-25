@@ -2,7 +2,7 @@ import AppKit
 import SwiftUI
 
 final class SettingsWindowController: NSWindowController {
-    init(config: Config) {
+    init(config: Config, history: HistoryStore) {
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 400, height: 420),
             styleMask: [.titled, .closable],
@@ -15,7 +15,7 @@ final class SettingsWindowController: NSWindowController {
 
         super.init(window: window)
 
-        let root = SettingsView(config: config) { [weak self] in
+        let root = SettingsView(config: config, history: history) { [weak self] in
             self?.close()
         }
         window.contentView = NSHostingView(rootView: root)

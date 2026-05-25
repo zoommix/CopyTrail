@@ -68,7 +68,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func showSettings() {
         if settingsWC == nil {
-            settingsWC = SettingsWindowController(config: config)
+            settingsWC = SettingsWindowController(config: config, history: history)
         }
         NSApp.activate(ignoringOtherApps: true)
         settingsWC?.showCentered()

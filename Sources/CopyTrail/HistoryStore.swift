@@ -206,6 +206,29 @@ final class HistoryStore: ObservableObject {
         schedulePersist()
     }
 
+    /// Remove a single entry by id. Deletes the underlying image file if
+    /// the entry is an image.
+    func remove(_ id: HistoryEntry.ID) {
+        guard let idx = entries.firstIndex(where: { $0.id == id }) else { return }
+        let entry = entries.remove(at: idx)
+        if entry.kind == .image, let file = entry.imageFile {
+            try? FileManager.default.removeItem(at: imagesDir.appendingPathComponent(file))
+        }
+        schedulePersist()
+    }
+
+    /// Wipe all history entries and any stored image files.
+    func clear() {
+        let fm = FileManager.default
+        for entry in entries where entry.kind == .image {
+            if let file = entry.imageFile {
+                try? fm.removeItem(at: imagesDir.appendingPathComponent(file))
+            }
+        }
+        entries.removeAll()
+        schedulePersist()
+    }
+
     private func trim() {
         if entries.count > maxLen {
             let dropped = entries[maxLen...]
