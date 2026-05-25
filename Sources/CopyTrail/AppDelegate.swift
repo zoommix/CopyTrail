@@ -15,11 +15,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.setActivationPolicy(.accessory)
 
         config = Config()
-        history = HistoryStore(maxLen: config.maxHistory)
+        history = HistoryStore(
+            maxLen: config.maxHistory,
+            maxImageBytes: config.maxImageBytes
+        )
 
         config.$maxHistory
             .dropFirst()
             .sink { [weak self] n in self?.history.setMax(n) }
+            .store(in: &cancellables)
+
+        config.$maxImageMB
+            .dropFirst()
+            .sink { [weak self] mb in
+                self?.history.setMaxImageBytes(mb * 1024 * 1024)
+            }
             .store(in: &cancellables)
 
         watcher = ClipboardWatcher { [weak self] item in
