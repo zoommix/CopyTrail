@@ -50,9 +50,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             history.add(.image(pngData: png))
         }
 
-        popover = HistoryPopoverController(store: history) { [weak self] entry in
-            self?.restore(entry)
-        }
+        popover = HistoryPopoverController(
+            store: history,
+            onRestore: { [weak self] entry in self?.restore(entry) },
+            onSettings: { [weak self] in self?.showSettings() },
+            onQuit: { NSApp.terminate(nil) }
+        )
 
         statusItem = StatusItemController()
         statusItem.onPrimaryClick = { [weak self] button in

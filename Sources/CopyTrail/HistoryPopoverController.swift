@@ -26,13 +26,22 @@ final class HistoryPopoverController {
     private let popover = NSPopover()
     private let store: HistoryStore
     private let onRestore: (HistoryEntry) -> Void
+    private let onSettings: () -> Void
+    private let onQuit: () -> Void
 
     private var globalMouseMonitor: Any?
     private var localKeyMonitor: Any?
 
-    init(store: HistoryStore, onRestore: @escaping (HistoryEntry) -> Void) {
+    init(
+        store: HistoryStore,
+        onRestore: @escaping (HistoryEntry) -> Void,
+        onSettings: @escaping () -> Void,
+        onQuit: @escaping () -> Void
+    ) {
         self.store = store
         self.onRestore = onRestore
+        self.onSettings = onSettings
+        self.onQuit = onQuit
 
         // .applicationDefined keeps the popover alive across spaces and in
         // fullscreen apps; we close it ourselves via a global mouse monitor
@@ -55,7 +64,15 @@ final class HistoryPopoverController {
                 self?.onRestore(entry)
                 self?.close()
             },
-            onDismiss: { [weak self] in self?.close() }
+            onDismiss: { [weak self] in self?.close() },
+            onSettings: { [weak self] in
+                self?.close()
+                self?.onSettings()
+            },
+            onQuit: { [weak self] in
+                self?.close()
+                self?.onQuit()
+            }
         )
         popover.contentViewController = FocusingHostingController(rootView: view)
     }
