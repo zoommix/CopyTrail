@@ -86,8 +86,7 @@ struct HistoryEntry: Codable, Identifiable, Equatable {
 }
 
 final class HistoryStore: ObservableObject {
-    static let maxTextBytes = 1 << 20         //  1 MiB
-    static let maxImageBytes = 10 << 20       // 10 MiB
+    static let maxTextBytes = 1 << 20  // 1 MiB
 
     @Published private(set) var entries: [HistoryEntry] = []
 
@@ -95,14 +94,20 @@ final class HistoryStore: ObservableObject {
     let imagesDir: URL
 
     private var maxLen: Int
+    private var maxImageBytes: Int
     private var persistWork: DispatchWorkItem?
 
-    init(maxLen: Int) {
+    init(maxLen: Int, maxImageBytes: Int) {
         self.historyURL = (try? Paths.historyURL()) ?? URL(fileURLWithPath: "/dev/null")
         self.imagesDir = (try? Paths.imagesURL()) ?? URL(fileURLWithPath: "/dev/null")
         self.maxLen = maxLen
+        self.maxImageBytes = maxImageBytes
         load()
         pruneOrphanImageFiles()
+    }
+
+    func setMaxImageBytes(_ n: Int) {
+        maxImageBytes = n
     }
 
     // MARK: Read-side helpers
@@ -156,7 +161,8 @@ final class HistoryStore: ObservableObject {
     }
 
     private func addImage(_ pngData: Data) -> Bool {
-        guard pngData.count <= Self.maxImageBytes else { return false }
+        guard maxImageBytes > 0 else { return false }
+        guard pngData.count <= maxImageBytes else { return false }
         let hash = Self.sha256Hex(pngData)
         let filename = hash + ".png"
 
