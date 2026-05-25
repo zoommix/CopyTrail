@@ -93,6 +93,7 @@ struct SearchView: View {
                 .truncationMode(.tail)
             Spacer(minLength: 8)
             shortcutLabel(idx: idx)
+            deleteButton(for: entry)
         }
         .frame(height: rowHeight)
         .contentShape(Rectangle())
@@ -101,6 +102,20 @@ struct SearchView: View {
             selection = entry.id
             restoreSelected()
         }
+    }
+
+    private func deleteButton(for entry: HistoryEntry) -> some View {
+        Button {
+            store.remove(entry.id)
+        } label: {
+            Image(systemName: "xmark")
+                .font(.system(size: 9, weight: .bold))
+                .foregroundStyle(.secondary)
+                .frame(width: 16, height: 16)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help("Remove from history")
     }
 
     @ViewBuilder
