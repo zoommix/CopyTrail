@@ -19,6 +19,7 @@ mkdir -p "$APP_DIR/Contents/MacOS"
 mkdir -p "$APP_DIR/Contents/Resources"
 cp "$BIN_PATH" "$APP_DIR/Contents/MacOS/$APP_NAME"
 cp Sources/CopyTrail/Resources/Info.plist "$APP_DIR/Contents/Info.plist"
+cp Sources/CopyTrail/Resources/AppIcon.icns "$APP_DIR/Contents/Resources/AppIcon.icns"
 
 # Ad-hoc sign so macOS will at least launch it without quarantine pain.
 codesign --force --sign - "$APP_DIR" >/dev/null

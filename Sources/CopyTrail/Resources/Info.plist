@@ -10,6 +10,8 @@
     <string>com.romanhuk.CopyTrail</string>
     <key>CFBundleExecutable</key>
     <string>CopyTrail</string>
+    <key>CFBundleIconFile</key>
+    <string>AppIcon</string>
     <key>CFBundleShortVersionString</key>
     <string>0.1.0</string>
     <key>CFBundleVersion</key>
