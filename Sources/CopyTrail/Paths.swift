@@ -25,4 +25,13 @@ enum Paths {
     static func historyURL() throws -> URL {
         try appSupportDir().appendingPathComponent("history.json")
     }
+
+    static func imagesURL() throws -> URL {
+        let dir = try appSupportDir().appendingPathComponent("images", isDirectory: true)
+        let fm = FileManager.default
+        if !fm.fileExists(atPath: dir.path) {
+            try fm.createDirectory(at: dir, withIntermediateDirectories: true)
+        }
+        return dir
+    }
 }

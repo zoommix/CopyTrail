@@ -22,17 +22,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             .sink { [weak self] n in self?.history.setMax(n) }
             .store(in: &cancellables)
 
-        watcher = ClipboardWatcher { [weak self] text in
-            self?.history.add(text)
+        watcher = ClipboardWatcher { [weak self] item in
+            self?.history.add(item)
         }
         watcher.start()
 
+        // Seed history with whatever's currently on the clipboard so the
+        // popover isn't empty on first open.
         if let existing = NSPasteboard.general.string(forType: .string), !existing.isEmpty {
-            history.add(existing)
+            history.add(.text(existing))
+        } else if let png = NSPasteboard.general.data(forType: .png) {
+            history.add(.image(pngData: png))
         }
 
         popover = HistoryPopoverController(store: history) { [weak self] entry in
-            self?.watcher.write(entry.text)
+            self?.restore(entry)
         }
 
         statusItem = StatusItemController()
@@ -58,6 +62,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         NSApp.activate(ignoringOtherApps: true)
         settingsWC?.showCentered()
+    }
+
+    private func restore(_ entry: HistoryEntry) {
+        switch entry.kind {
+        case .text:
+            watcher.writeText(entry.text ?? "")
+        case .image:
+            guard
+                let url = history.imageURL(for: entry),
+                let data = try? Data(contentsOf: url)
+            else { return }
+            watcher.writeImage(pngData: data)
+        }
     }
 
     private func toggleFromHotkey() {
