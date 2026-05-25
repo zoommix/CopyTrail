@@ -70,14 +70,68 @@ final class HistoryPopoverController {
         NSApp.activate(ignoringOtherApps: true)
         popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
 
+        // Hide the popover window immediately and finish positioning on
+        // the next run-loop tick. The first call to CGWindowList in a
+        // session can miss the fullscreen window if asked too early; by
+        // the time the dispatched block runs, the detection is stable.
+        // Keeping alphaValue = 0 until then prevents the user from ever
+        // seeing the wrong (clipped) position.
         if let window = popover.contentViewController?.view.window {
-            // Make the popover visible on the fullscreen space we're currently on.
+            window.alphaValue = 0
             window.collectionBehavior.insert(.canJoinAllSpaces)
             window.collectionBehavior.insert(.fullScreenAuxiliary)
+        }
+
+        DispatchQueue.main.async { [weak self] in
+            guard
+                let self = self,
+                let window = self.popover.contentViewController?.view.window
+            else { return }
+
+            if Self.isAnyAppFullscreen() {
+                let inset = Self.fullscreenBarInset()
+                var frame = window.frame
+                frame.origin.y -= inset
+                window.setFrame(frame, display: false)
+            }
+
+            window.alphaValue = 1
             window.makeKey()
         }
 
         installDismissMonitors()
+    }
+
+    private static func fullscreenBarInset() -> CGFloat {
+        if let screen = NSScreen.main {
+            let barHeight = screen.frame.maxY - screen.visibleFrame.maxY
+            if barHeight > 0 { return barHeight + 12 }
+        }
+        return 48
+    }
+
+    /// True if any normal-layer window currently fills the entire main
+    /// screen — proxy for "some other app is in fullscreen".
+    private static func isAnyAppFullscreen() -> Bool {
+        guard
+            let infoList = CGWindowListCopyWindowInfo(.optionOnScreenOnly, kCGNullWindowID) as? [[String: Any]],
+            let screen = NSScreen.main
+        else { return false }
+
+        let w = screen.frame.width
+        let h = screen.frame.height
+
+        for info in infoList {
+            guard
+                let layer = info[kCGWindowLayer as String] as? Int,
+                layer == 0,
+                let bounds = info[kCGWindowBounds as String] as? [String: CGFloat]
+            else { continue }
+            let bw = bounds["Width"] ?? 0
+            let bh = bounds["Height"] ?? 0
+            if bw >= w - 1 && bh >= h - 1 { return true }
+        }
+        return false
     }
 
     func close() {
