@@ -6,9 +6,17 @@ CONFIG="${1:-release}"
 APP_NAME="CopyTrail"
 APP_DIR="$APP_NAME.app"
 
-swift build -c "$CONFIG"
+# Default to a universal binary (arm64 + x86_64). Pass UNIVERSAL=0 to
+# fall back to a host-arch-only build (faster, smaller — useful for
+# fast iteration loops during development).
+ARCH_FLAGS=(--arch arm64 --arch x86_64)
+if [[ "${UNIVERSAL:-1}" == "0" ]]; then
+    ARCH_FLAGS=()
+fi
 
-BIN_PATH="$(swift build -c "$CONFIG" --show-bin-path)/$APP_NAME"
+swift build -c "$CONFIG" "${ARCH_FLAGS[@]}"
+
+BIN_PATH="$(swift build -c "$CONFIG" "${ARCH_FLAGS[@]}" --show-bin-path)/$APP_NAME"
 if [[ ! -x "$BIN_PATH" ]]; then
     echo "Build produced no executable at $BIN_PATH" >&2
     exit 1
