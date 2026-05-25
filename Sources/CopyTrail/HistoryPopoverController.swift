@@ -73,41 +73,45 @@ final class HistoryPopoverController {
     func show(relativeTo button: NSStatusBarButton) {
         rebuildContent()
         NSApp.activate(ignoringOtherApps: true)
+
+        // Sample fullscreen state BEFORE the popover shows: NSApp.activate
+        // and popover.show both perturb the window list, so a check
+        // afterwards is less reliable. Combined with the launch-time
+        // CGWindowList warmup in AppDelegate, this is stable.
+        let inFullscreen = Self.isAnyAppFullscreen()
+
         popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
 
-        // Hide the popover window immediately and finish positioning on
-        // the next run-loop tick. The first call to CGWindowList in a
-        // session can miss the fullscreen window if asked too early; by
-        // the time the dispatched block runs, the detection is stable.
-        // Keeping alphaValue = 0 until then prevents the user from ever
-        // seeing the wrong (clipped) position.
-        if let window = popover.contentViewController?.view.window {
-            window.alphaValue = 0
-            window.collectionBehavior.insert(.canJoinAllSpaces)
-            window.collectionBehavior.insert(.fullScreenAuxiliary)
+        guard let window = popover.contentViewController?.view.window else {
+            installDismissMonitors()
+            return
         }
 
-        DispatchQueue.main.async { [weak self] in
-            guard
-                let self = self,
-                let window = self.popover.contentViewController?.view.window
-            else { return }
+        window.collectionBehavior.insert(.canJoinAllSpaces)
+        window.collectionBehavior.insert(.fullScreenAuxiliary)
 
-            var frame = window.frame
-            if Self.isAnyAppFullscreen() {
-                // In fullscreen, shift fully past the system menu-bar zone.
-                // Don't claw back the anchor-arrow chrome — leaving it gives
-                // a natural visual gap that matches where the (hidden) bar
-                // ends.
+        if inFullscreen {
+            // Defer to the next tick because in fullscreen NSPopover
+            // sometimes settles its frame after layout, and we want the
+            // user to never see the clipped intermediate position.
+            window.alphaValue = 0
+            DispatchQueue.main.async { [weak self] in
+                guard
+                    let self = self,
+                    let window = self.popover.contentViewController?.view.window
+                else { return }
+                var frame = window.frame
                 frame.origin.y -= Self.fullscreenBarInset()
-            } else {
-                // In normal mode, pull up just enough to match the small
-                // gap that native NSMenus have below the menu bar.
-                frame.origin.y += Self.normalModePullUp
+                window.setFrame(frame, display: false)
+                window.alphaValue = 1
+                window.makeKey()
             }
+        } else {
+            // Normal mode: apply the small pull-up synchronously so the
+            // popover appears immediately rather than one frame later.
+            var frame = window.frame
+            frame.origin.y += Self.normalModePullUp
             window.setFrame(frame, display: false)
-
-            window.alphaValue = 1
             window.makeKey()
         }
 

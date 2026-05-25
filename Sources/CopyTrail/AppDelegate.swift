@@ -14,6 +14,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
 
+        // Warm up CGWindowList — the first call in a process returns
+        // stale/incomplete data, which made our fullscreen check fail on
+        // the first popover open. Cost: ~1 ms, once.
+        _ = CGWindowListCopyWindowInfo(.optionOnScreenOnly, kCGNullWindowID)
+
         config = Config()
         history = HistoryStore(
             maxLen: config.maxHistory,
