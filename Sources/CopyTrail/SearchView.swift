@@ -7,6 +7,7 @@ struct SearchView: View {
 
     @State private var query: String = ""
     @State private var selection: HistoryEntry.ID?
+    @State private var hoveredID: HistoryEntry.ID?
 
     /// Native menu metrics: NSMenu rows are 22pt, item font is 13pt.
     private let rowHeight: CGFloat = 22
@@ -94,6 +95,7 @@ struct SearchView: View {
             Spacer(minLength: 8)
             shortcutLabel(idx: idx)
             deleteButton(for: entry)
+                .opacity(hoveredID == entry.id ? 1 : 0)
         }
         .frame(height: rowHeight)
         .contentShape(Rectangle())
@@ -101,6 +103,13 @@ struct SearchView: View {
         .onTapGesture {
             selection = entry.id
             restoreSelected()
+        }
+        .onHover { hovering in
+            if hovering {
+                hoveredID = entry.id
+            } else if hoveredID == entry.id {
+                hoveredID = nil
+            }
         }
     }
 
