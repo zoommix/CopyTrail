@@ -84,6 +84,9 @@ struct SearchView: View {
 
     private func row(for entry: HistoryEntry, index idx: Int) -> some View {
         HStack(spacing: 8) {
+            if entry.kind == .image, let url = store.imageURL(for: entry) {
+                thumbnail(at: url)
+            }
             Text(entry.preview)
                 .font(.system(size: menuFontSize))
                 .lineLimit(1)
@@ -97,6 +100,18 @@ struct SearchView: View {
         .onTapGesture {
             selection = entry.id
             restoreSelected()
+        }
+    }
+
+    @ViewBuilder
+    private func thumbnail(at url: URL) -> some View {
+        if let nsImage = NSImage(contentsOf: url) {
+            Image(nsImage: nsImage)
+                .resizable()
+                .interpolation(.medium)
+                .scaledToFit()
+                .frame(width: 28, height: 18)
+                .clipShape(RoundedRectangle(cornerRadius: 2))
         }
     }
 
