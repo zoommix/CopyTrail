@@ -57,6 +57,7 @@ struct SearchView: View {
                 }
             }
         }
+        .padding(.bottom, 6)
         .background(VisualEffectView(material: .menu))
         .background(cmdNumberShortcuts)
         .frame(width: 360)

@@ -40,6 +40,11 @@ final class HistoryPopoverController {
         popover.behavior = .applicationDefined
         popover.animates = false
 
+        // Hide the anchor arrow. Public NSPopover has no flag for this;
+        // KVC into the private "shouldHideAnchor" has been the standard
+        // workaround for many years.
+        popover.setValue(true, forKey: "shouldHideAnchor")
+
         rebuildContent()
     }
 
