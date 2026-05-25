@@ -1,5 +1,11 @@
 # CopyTrail
 
+<p align="center">
+  <img width="388" height="365" align="top" alt="image" src="https://github.com/user-attachments/assets/e50b2188-7a77-475f-a797-565ac8aa264b" />
+  &nbsp;&nbsp;
+  <img width="396" height="464" align="top" alt="image" src="https://github.com/user-attachments/assets/5b71dd16-09e3-4067-9d8a-202e0ef81da3" />
+</p>
+
 A small clipboard history menu-bar app for macOS. Watches the system pasteboard, keeps a configurable backlog of past entries (text and images), and lets you search and restore any of them via a native dropdown.
 
 ## Features
