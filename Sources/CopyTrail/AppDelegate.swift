@@ -43,7 +43,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem.onQuit = { NSApp.terminate(nil) }
 
         KeyboardShortcuts.onKeyDown(for: .showCopyTrail) { [weak self] in
-            self?.openFromHotkey()
+            self?.toggleFromHotkey()
         }
     }
 
@@ -60,8 +60,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         settingsWC?.showCentered()
     }
 
-    private func openFromHotkey() {
+    private func toggleFromHotkey() {
         guard let button = statusItem.statusItem.button else { return }
-        popover.show(relativeTo: button)
+        popover.toggle(relativeTo: button)
     }
 }
