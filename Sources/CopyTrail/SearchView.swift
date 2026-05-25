@@ -8,7 +8,9 @@ struct SearchView: View {
     @State private var query: String = ""
     @State private var selection: HistoryEntry.ID?
 
-    private let rowHeight: CGFloat = 24
+    /// Native menu metrics: NSMenu rows are 22pt, item font is 13pt.
+    private let rowHeight: CGFloat = 22
+    private let menuFontSize: CGFloat = 13
     private let maxVisibleRows = 12
 
     private var filtered: [HistoryEntry] {
@@ -17,38 +19,33 @@ struct SearchView: View {
 
     private var listHeight: CGFloat {
         let count = max(filtered.count, 1)
-        return CGFloat(min(count, maxVisibleRows)) * rowHeight + 8
+        return CGFloat(min(count, maxVisibleRows)) * rowHeight
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            SearchField(
-                text: $query,
-                onUp:    { move(by: -1) },
-                onDown:  { move(by: 1) },
-                onCommit: { restoreSelected() },
-                onCancel: { onDismiss() }
-            )
-            .frame(height: 24)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 8)
+        VStack(alignment: .leading, spacing: 0) {
+            header
 
             Divider()
 
             if filtered.isEmpty {
                 Text(query.isEmpty ? "No clipboard history yet" : "No matches")
                     .foregroundStyle(.secondary)
-                    .font(.system(size: 12))
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 16)
+                    .font(.system(size: menuFontSize))
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.vertical, 8)
             } else {
                 ScrollViewReader { proxy in
                     List(selection: $selection) {
                         ForEach(Array(filtered.enumerated()), id: \.element.id) { idx, entry in
                             row(for: entry, index: idx)
+                                .listRowSeparator(.hidden)
+                                .listRowInsets(EdgeInsets(top: 0, leading: 12, bottom: 0, trailing: 12))
                         }
                     }
                     .listStyle(.plain)
+                    .scrollContentBackground(.hidden)
+                    .environment(\.defaultMinListRowHeight, rowHeight)
                     .frame(height: listHeight)
                     .onChange(of: selection) { _, newValue in
                         if let id = newValue {
@@ -58,8 +55,9 @@ struct SearchView: View {
                 }
             }
         }
+        .background(VisualEffectView(material: .menu))
         .background(cmdNumberShortcuts)
-        .frame(width: 380)
+        .frame(width: 360)
         .onAppear {
             selection = filtered.first?.id
         }
@@ -68,27 +66,50 @@ struct SearchView: View {
         }
     }
 
+    private var header: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            SearchField(
+                text: $query,
+                onUp: { move(by: -1) },
+                onDown: { move(by: 1) },
+                onCommit: { restoreSelected() },
+                onCancel: { onDismiss() }
+            )
+            .frame(height: 22)
+        }
+        .padding(.horizontal, 10)
+        .padding(.top, 8)
+        .padding(.bottom, 6)
+    }
+
     private func row(for entry: HistoryEntry, index idx: Int) -> some View {
         HStack(spacing: 8) {
             Text(entry.preview)
+                .font(.system(size: menuFontSize))
                 .lineLimit(1)
                 .truncationMode(.tail)
             Spacer(minLength: 8)
-            if idx < 9 {
-                Text("⌘\(idx + 1)")
-                    .font(.system(size: 11, design: .monospaced))
-                    .foregroundStyle(.tertiary)
-            } else if idx == 9 {
-                Text("⌘0")
-                    .font(.system(size: 11, design: .monospaced))
-                    .foregroundStyle(.tertiary)
-            }
+            shortcutLabel(idx: idx)
         }
+        .frame(height: rowHeight)
         .contentShape(Rectangle())
         .tag(entry.id)
         .onTapGesture {
             selection = entry.id
             restoreSelected()
+        }
+    }
+
+    @ViewBuilder
+    private func shortcutLabel(idx: Int) -> some View {
+        if idx < 9 {
+            Text("⌘\(idx + 1)")
+                .font(.system(size: 12, design: .default))
+                .foregroundStyle(.tertiary)
+        } else if idx == 9 {
+            Text("⌘0")
+                .font(.system(size: 12, design: .default))
+                .foregroundStyle(.tertiary)
         }
     }
 
