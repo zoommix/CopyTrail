@@ -8,7 +8,7 @@ A small clipboard history menu-bar app for macOS. Watches the system pasteboard,
 - Real `NSSearchField` at the top of the popup with live substring filtering.
 - Arrow keys / Return / mouse-click to restore an entry; Esc to dismiss.
 - `⌘1`–`⌘9`, `⌘0` to restore the first ten visible entries directly.
-- Configurable global hotkey (default `⌘⇧V`) toggles the popup.
+- Configurable global hotkey (default `⌃Space`) toggles the popup.
 - Handles both text and PNG/TIFF image clipboard payloads (images are stored on disk and shown with a thumbnail in the list).
 - Configurable max history (10 – 100 000 entries) and max image size (0 – 100 MB; `0` disables image capture).
 - Per-row delete (× appears on hover) and a "Clear history…" action in Settings.
