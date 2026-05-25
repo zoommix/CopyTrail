@@ -8,6 +8,7 @@ struct SettingsView: View {
 
     @State private var draftMaxHistory: Int = Config.defaultMaxHistory
     @State private var draftMaxImageMB: Int = Config.defaultMaxImageMB
+    @State private var launchAtStartup: Bool = false
     @State private var error: String?
     @State private var showClearConfirm = false
 
@@ -15,6 +16,13 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: 16) {
             Form {
                 Section {
+                    Toggle("Launch at startup", isOn: $launchAtStartup)
+                        .onChange(of: launchAtStartup) { _, newValue in
+                            let actual = LoginItem.setEnabled(newValue)
+                            if actual != newValue {
+                                launchAtStartup = actual
+                            }
+                        }
                     Stepper(
                         value: $draftMaxHistory,
                         in: Config.minMaxHistory...Config.maxMaxHistory,
@@ -65,6 +73,7 @@ struct SettingsView: View {
         .onAppear {
             draftMaxHistory = config.maxHistory
             draftMaxImageMB = config.maxImageMB
+            launchAtStartup = LoginItem.isEnabled
         }
         .confirmationDialog(
             "Clear all clipboard history?",
