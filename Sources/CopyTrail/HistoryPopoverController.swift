@@ -93,12 +93,19 @@ final class HistoryPopoverController {
                 let window = self.popover.contentViewController?.view.window
             else { return }
 
+            var frame = window.frame
             if Self.isAnyAppFullscreen() {
-                let inset = Self.fullscreenBarInset()
-                var frame = window.frame
-                frame.origin.y -= inset
-                window.setFrame(frame, display: false)
+                // In fullscreen, shift fully past the system menu-bar zone.
+                // Don't claw back the anchor-arrow chrome — leaving it gives
+                // a natural visual gap that matches where the (hidden) bar
+                // ends.
+                frame.origin.y -= Self.fullscreenBarInset()
+            } else {
+                // In normal mode, pull up just enough to match the small
+                // gap that native NSMenus have below the menu bar.
+                frame.origin.y += Self.normalModePullUp
             }
+            window.setFrame(frame, display: false)
 
             window.alphaValue = 1
             window.makeKey()
@@ -106,6 +113,12 @@ final class HistoryPopoverController {
 
         installDismissMonitors()
     }
+
+    /// In non-fullscreen mode, shift the popover upward by this much into
+    /// the dead space NSPopover reserves for the (hidden) anchor arrow,
+    /// tuned so the visible top of the popover sits at the same y as a
+    /// native NSMenu's first row.
+    private static let normalModePullUp: CGFloat = 10
 
     private static func fullscreenBarInset() -> CGFloat {
         if let screen = NSScreen.main {
