@@ -13,7 +13,11 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: 16) {
             Form {
                 Section {
-                    Stepper(value: $draftMaxHistory, in: Config.minMaxHistory...Config.maxMaxHistory) {
+                    Stepper(
+                        value: $draftMaxHistory,
+                        in: Config.minMaxHistory...Config.maxMaxHistory,
+                        step: 100
+                    ) {
                         labeledNumber(title: "Max history size", binding: $draftMaxHistory)
                     }
                     Stepper(value: $draftMaxImageMB, in: Config.minMaxImageMB...Config.maxMaxImageMB) {
