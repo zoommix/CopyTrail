@@ -4,7 +4,7 @@ import SwiftUI
 final class SettingsWindowController: NSWindowController {
     init(config: Config) {
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 360, height: 240),
+            contentRect: NSRect(x: 0, y: 0, width: 400, height: 420),
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false

@@ -8,7 +8,7 @@ private struct ConfigPayload: Codable {
 final class Config: ObservableObject {
     static let defaultMaxHistory = 100
     static let minMaxHistory = 10
-    static let maxMaxHistory = 1000
+    static let maxMaxHistory = 100_000
 
     static let defaultMaxImageMB = 10
     static let minMaxImageMB = 0      // 0 disables image capture entirely
