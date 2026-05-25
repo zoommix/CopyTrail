@@ -5,6 +5,8 @@ struct SearchView: View {
     @ObservedObject var store: HistoryStore
     var onRestore: (HistoryEntry) -> Void
     var onDismiss: () -> Void
+    var onSettings: () -> Void
+    var onQuit: () -> Void
 
     @State private var query: String = ""
     @State private var selection: HistoryEntry.ID?
@@ -56,8 +58,9 @@ struct SearchView: View {
                     }
                 }
             }
+
+            footer
         }
-        .padding(.bottom, 6)
         .background(VisualEffectView(material: .menu))
         .background(cmdNumberShortcuts)
         .frame(width: 360)
@@ -66,6 +69,22 @@ struct SearchView: View {
         }
         .onChange(of: query) { _, _ in
             selection = filtered.first?.id
+        }
+    }
+
+    private var footer: some View {
+        VStack(spacing: 0) {
+            Divider()
+            HStack {
+                Button("Settings…") { onSettings() }
+                Spacer()
+                Button("Quit CopyTrail") { onQuit() }
+            }
+            .buttonStyle(.plain)
+            .font(.system(size: 12))
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
         }
     }
 
