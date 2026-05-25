@@ -24,4 +24,21 @@ cp Sources/CopyTrail/Resources/AppIcon.icns "$APP_DIR/Contents/Resources/AppIcon
 # Ad-hoc sign so macOS will at least launch it without quarantine pain.
 codesign --force --sign - "$APP_DIR" >/dev/null
 
-echo "Built $APP_DIR — double-click it or run: open $APP_DIR"
+# Install into /Applications so SMAppService (launch at startup) has a
+# stable path to register, and Launchpad / Spotlight pick it up.
+INSTALL_DIR="/Applications/$APP_NAME.app"
+
+# If a copy is running, terminate it before replacing the bundle —
+# otherwise the cp below clobbers a live binary on disk.
+if pgrep -x "$APP_NAME" >/dev/null; then
+    echo "Stopping running $APP_NAME…"
+    osascript -e "tell application \"$APP_NAME\" to quit" 2>/dev/null || true
+    # Fallback if it didn't quit gracefully.
+    pkill -x "$APP_NAME" 2>/dev/null || true
+    sleep 1
+fi
+
+rm -rf "$INSTALL_DIR"
+cp -R "$APP_DIR" "$INSTALL_DIR"
+
+echo "Built $APP_DIR and installed at $INSTALL_DIR"
