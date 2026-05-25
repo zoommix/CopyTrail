@@ -58,11 +58,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         )
 
         statusItem = StatusItemController()
-        statusItem.onPrimaryClick = { [weak self] button in
+        statusItem.onClick = { [weak self] button in
             self?.popover.toggle(relativeTo: button)
         }
-        statusItem.onSettings = { [weak self] in self?.showSettings() }
-        statusItem.onQuit = { NSApp.terminate(nil) }
 
         KeyboardShortcuts.onKeyDown(for: .showCopyTrail) { [weak self] in
             self?.toggleFromHotkey()
