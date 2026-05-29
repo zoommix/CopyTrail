@@ -29,6 +29,10 @@ cp "$BIN_PATH" "$APP_DIR/Contents/MacOS/$APP_NAME"
 cp Sources/CopyTrail/Resources/Info.plist "$APP_DIR/Contents/Info.plist"
 cp Sources/CopyTrail/Resources/AppIcon.icns "$APP_DIR/Contents/Resources/AppIcon.icns"
 
+# Copy SPM resource bundles (e.g. KeyboardShortcuts localizations).
+BIN_DIR="$(dirname "$BIN_PATH")"
+find "$BIN_DIR" -maxdepth 1 -name '*.bundle' -exec cp -R {} "$APP_DIR/Contents/Resources/" \;
+
 # Ad-hoc sign so macOS will at least launch it without quarantine pain.
 codesign --force --sign - "$APP_DIR" >/dev/null
 
@@ -39,7 +43,7 @@ INSTALL_DIR="/Applications/$APP_NAME.app"
 # If a copy is running, terminate it before replacing the bundle —
 # otherwise the cp below clobbers a live binary on disk.
 if pgrep -x "$APP_NAME" >/dev/null; then
-    echo "Stopping running $APP_NAME…"
+    echo "Stopping running ${APP_NAME}…"
     osascript -e "tell application \"$APP_NAME\" to quit" 2>/dev/null || true
     # Fallback if it didn't quit gracefully.
     pkill -x "$APP_NAME" 2>/dev/null || true
