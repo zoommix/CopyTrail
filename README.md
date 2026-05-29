@@ -13,6 +13,7 @@ A small clipboard history menu-bar app for macOS. Watches the system pasteboard,
 - Lives in the menu bar; left-click for the search dropdown, right-click for Settings / Quit.
 - Real `NSSearchField` at the top of the popup with live substring filtering.
 - Arrow keys / Return / mouse-click to restore an entry; Esc to dismiss.
+- Hold **Shift** to preview the full content of any item in a panel to the left of the popup (works with both hover and arrow-key navigation).
 - `⌘1`–`⌘9`, `⌘0` to restore the first ten visible entries directly.
 - Configurable global hotkey (default `⌃Space`) toggles the popup.
 - Handles both text and PNG/TIFF image clipboard payloads (images are stored on disk and shown with a thumbnail in the list).
@@ -72,6 +73,8 @@ Sources/CopyTrail/
   Paths.swift                      ~/Library/Application Support helpers
   SearchView.swift                 SwiftUI popup UI
   SearchField.swift                NSSearchField wrapper
+  PreviewPanelController.swift     Shift-to-preview NSPanel
+  PreviewContentView.swift         SwiftUI preview content
   SettingsView.swift               SwiftUI settings form
   SettingsWindowController.swift   hosts SettingsView
   Shortcuts.swift                  KeyboardShortcuts.Name extension
