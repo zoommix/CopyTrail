@@ -87,6 +87,9 @@ struct SearchView: View {
             HStack {
                 Button("Settings…") { onSettings() }
                 Spacer()
+                Text("Hold ⇧ to preview")
+                    .foregroundStyle(.quaternary)
+                Spacer()
                 Button("Quit CopyTrail") { onQuit() }
             }
             .buttonStyle(.plain)
