@@ -56,10 +56,12 @@ struct SearchField: NSViewRepresentable {
             doCommandBy commandSelector: Selector
         ) -> Bool {
             switch commandSelector {
-            case #selector(NSResponder.moveDown(_:)):
+            case #selector(NSResponder.moveDown(_:)),
+                 #selector(NSResponder.moveDownAndModifySelection(_:)):
                 parent.onDown()
                 return true
-            case #selector(NSResponder.moveUp(_:)):
+            case #selector(NSResponder.moveUp(_:)),
+                 #selector(NSResponder.moveUpAndModifySelection(_:)):
                 parent.onUp()
                 return true
             case #selector(NSResponder.insertNewline(_:)),
