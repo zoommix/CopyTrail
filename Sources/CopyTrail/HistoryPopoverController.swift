@@ -31,6 +31,12 @@ final class HistoryPopoverController {
 
     private var globalMouseMonitor: Any?
     private var localKeyMonitor: Any?
+    private var localFlagsMonitor: Any?
+    private var globalFlagsMonitor: Any?
+    private let previewController: PreviewPanelController
+    private var shiftHeld = false
+    private var lastActiveEntry: HistoryEntry?
+    private var lastActiveRowIndex: Int?
 
     init(
         store: HistoryStore,
@@ -42,6 +48,7 @@ final class HistoryPopoverController {
         self.onRestore = onRestore
         self.onSettings = onSettings
         self.onQuit = onQuit
+        self.previewController = PreviewPanelController(store: store)
 
         // .applicationDefined keeps the popover alive across spaces and in
         // fullscreen apps; we close it ourselves via a global mouse monitor
@@ -72,9 +79,29 @@ final class HistoryPopoverController {
             onQuit: { [weak self] in
                 self?.close()
                 self?.onQuit()
+            },
+            onActiveEntryChanged: { [weak self] entry, rowIndex in
+                self?.handleActiveEntryChanged(entry: entry, rowIndex: rowIndex)
             }
         )
         popover.contentViewController = FocusingHostingController(rootView: view)
+    }
+
+    private func handleActiveEntryChanged(entry: HistoryEntry?, rowIndex: Int?) {
+        lastActiveEntry = entry
+        lastActiveRowIndex = rowIndex
+        updatePreview()
+    }
+
+    private func updatePreview() {
+        guard shiftHeld,
+              let entry = lastActiveEntry,
+              let rowIndex = lastActiveRowIndex,
+              let window = popover.contentViewController?.view.window else {
+            previewController.hide()
+            return
+        }
+        previewController.show(entry: entry, rowIndex: rowIndex, popoverWindow: window)
     }
 
     var isShown: Bool { popover.isShown }
@@ -174,6 +201,7 @@ final class HistoryPopoverController {
     }
 
     func close() {
+        previewController.teardown()
         uninstallDismissMonitors()
         popover.performClose(nil)
     }
@@ -203,6 +231,18 @@ final class HistoryPopoverController {
             }
             return event
         }
+
+        // Track Shift key for preview panel visibility. Both local and
+        // global monitors are needed: local covers the normal case when
+        // the popover is key; global covers fullscreen and edge cases
+        // where the popover window doesn't reliably hold key state.
+        localFlagsMonitor = NSEvent.addLocalMonitorForEvents(matching: .flagsChanged) { [weak self] event in
+            self?.handleFlagsChanged(event)
+            return event
+        }
+        globalFlagsMonitor = NSEvent.addGlobalMonitorForEvents(matching: .flagsChanged) { [weak self] event in
+            self?.handleFlagsChanged(event)
+        }
     }
 
     private func uninstallDismissMonitors() {
@@ -213,6 +253,23 @@ final class HistoryPopoverController {
         if let monitor = localKeyMonitor {
             NSEvent.removeMonitor(monitor)
             localKeyMonitor = nil
+        }
+        if let monitor = localFlagsMonitor {
+            NSEvent.removeMonitor(monitor)
+            localFlagsMonitor = nil
+        }
+        if let monitor = globalFlagsMonitor {
+            NSEvent.removeMonitor(monitor)
+            globalFlagsMonitor = nil
+        }
+        shiftHeld = false
+    }
+
+    private func handleFlagsChanged(_ event: NSEvent) {
+        let wasHeld = shiftHeld
+        shiftHeld = event.modifierFlags.contains(.shift)
+        if wasHeld != shiftHeld {
+            updatePreview()
         }
     }
 }

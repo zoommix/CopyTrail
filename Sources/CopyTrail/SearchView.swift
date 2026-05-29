@@ -7,6 +7,7 @@ struct SearchView: View {
     var onDismiss: () -> Void
     var onSettings: () -> Void
     var onQuit: () -> Void
+    var onActiveEntryChanged: (HistoryEntry?, Int?) -> Void = { _, _ in }
 
     @State private var query: String = ""
     @State private var selection: HistoryEntry.ID?
@@ -66,9 +67,17 @@ struct SearchView: View {
         .frame(width: 360)
         .onAppear {
             selection = filtered.first?.id
+            notifyActiveEntry()
         }
         .onChange(of: query) { _, _ in
             selection = filtered.first?.id
+            notifyActiveEntry()
+        }
+        .onChange(of: selection) { _, _ in
+            notifyActiveEntry()
+        }
+        .onChange(of: hoveredID) { _, _ in
+            notifyActiveEntry()
         }
     }
 
@@ -220,5 +229,16 @@ struct SearchView: View {
         let items = filtered
         guard index < items.count else { return }
         onRestore(items[index])
+    }
+
+    private func notifyActiveEntry() {
+        let items = filtered
+        let activeID = hoveredID ?? selection
+        guard let id = activeID,
+              let idx = items.firstIndex(where: { $0.id == id }) else {
+            onActiveEntryChanged(nil, nil)
+            return
+        }
+        onActiveEntryChanged(items[idx], idx)
     }
 }
