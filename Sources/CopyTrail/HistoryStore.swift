@@ -67,8 +67,10 @@ struct HistoryEntry: Codable, Identifiable, Equatable {
         switch kind {
         case .text:
             let raw = text ?? ""
-            let firstLine = raw.split(whereSeparator: \.isNewline).first.map(String.init) ?? raw
-            let trimmed = firstLine.trimmingCharacters(in: .whitespaces)
+            let firstNonEmpty = raw.split(whereSeparator: \.isNewline)
+                .first(where: { !$0.allSatisfy(\.isWhitespace) })
+                .map(String.init) ?? raw
+            let trimmed = firstNonEmpty.trimmingCharacters(in: .whitespaces)
             let limit = 80
             if trimmed.count > limit {
                 return String(trimmed.prefix(limit)) + "…"

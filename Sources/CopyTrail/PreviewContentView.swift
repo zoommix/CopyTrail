@@ -25,8 +25,11 @@ struct PreviewContentView: View {
     }
 
     private var textPreview: some View {
-        ScrollView {
-            Text(entry.text ?? "")
+        let raw = entry.text ?? ""
+        let display = raw.drop(while: { $0.isWhitespace || $0.isNewline })
+
+        return ScrollView {
+            Text(display)
                 .font(.system(size: fontSize))
                 .textSelection(.enabled)
                 .fixedSize(horizontal: false, vertical: true)
