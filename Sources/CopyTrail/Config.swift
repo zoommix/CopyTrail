@@ -3,6 +3,7 @@ import Foundation
 private struct ConfigPayload: Codable {
     var maxHistory: Int
     var maxImageMB: Int?
+    var previewWidth: Int?
 }
 
 final class Config: ObservableObject {
@@ -14,8 +15,13 @@ final class Config: ObservableObject {
     static let minMaxImageMB = 0      // 0 disables image capture entirely
     static let maxMaxImageMB = 100
 
+    static let defaultPreviewWidth = 300
+    static let minPreviewWidth = 200
+    static let maxPreviewWidth = 1200
+
     @Published var maxHistory: Int
     @Published var maxImageMB: Int
+    @Published var previewWidth: Int
 
     private let url: URL
 
@@ -23,6 +29,7 @@ final class Config: ObservableObject {
         self.url = (try? Paths.configURL()) ?? URL(fileURLWithPath: "/dev/null")
         self.maxHistory = Self.defaultMaxHistory
         self.maxImageMB = Self.defaultMaxImageMB
+        self.previewWidth = Self.defaultPreviewWidth
         load()
     }
 
@@ -34,7 +41,8 @@ final class Config: ObservableObject {
         }
         maxHistory = clampHistory(payload.maxHistory)
         maxImageMB = clampImageMB(payload.maxImageMB ?? Self.defaultMaxImageMB)
-        if payload.maxImageMB == nil {
+        previewWidth = clampPreviewWidth(payload.previewWidth ?? Self.defaultPreviewWidth)
+        if payload.maxImageMB == nil || payload.previewWidth == nil {
             save() // migrate old config files
         }
     }
@@ -49,6 +57,11 @@ final class Config: ObservableObject {
         save()
     }
 
+    func setPreviewWidth(_ n: Int) {
+        previewWidth = clampPreviewWidth(n)
+        save()
+    }
+
     var maxImageBytes: Int { maxImageMB * 1024 * 1024 }
 
     private func clampHistory(_ n: Int) -> Int {
@@ -59,8 +72,12 @@ final class Config: ObservableObject {
         max(Self.minMaxImageMB, min(Self.maxMaxImageMB, n))
     }
 
+    private func clampPreviewWidth(_ n: Int) -> Int {
+        max(Self.minPreviewWidth, min(Self.maxPreviewWidth, n))
+    }
+
     private func save() {
-        let payload = ConfigPayload(maxHistory: maxHistory, maxImageMB: maxImageMB)
+        let payload = ConfigPayload(maxHistory: maxHistory, maxImageMB: maxImageMB, previewWidth: previewWidth)
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         guard let data = try? encoder.encode(payload) else { return }

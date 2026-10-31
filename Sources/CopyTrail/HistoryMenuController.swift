@@ -25,7 +25,8 @@ final class HistoryMenu: NSMenu {
 
 /// Pulls key events off the queue before NSMenu's tracking loop sees them, so
 /// typing never falls through to NSMenu's type-select (approach used by
-/// KeyboardShortcuts and Maccy). Unhandled events are re-posted.
+/// KeyboardShortcuts and Maccy). The handler also sees modifier changes.
+/// Unhandled events are re-posted.
 private final class TrackingKeyMonitor {
     private var observer: CFRunLoopObserver?
     private let mode = CFRunLoopMode(RunLoop.Mode.eventTracking.rawValue as CFString)
@@ -39,7 +40,7 @@ private final class TrackingKeyMonitor {
             while let event = NSApp.nextEvent(matching: .any, until: nil, inMode: .default, dequeue: true) {
                 events.append(event)
             }
-            for event in events where !(event.type == .keyDown && handler(event)) {
+            for event in events where !([.keyDown, .flagsChanged].contains(event.type) && handler(event)) {
                 NSApp.postEvent(event, atStart: false)
             }
         }
@@ -64,10 +65,19 @@ final class HistoryMenuController: NSObject, NSMenuDelegate {
 
     let menu = HistoryMenu()
     private let keyMonitor = TrackingKeyMonitor()
+    private let preview: PreviewPanelController
     private var lastHighlighted: NSMenuItem?
+    /// Highlighted row as last reported by NSMenu (nil while the search field has focus).
+    private var previewItem: NSMenuItem?
+    private var shiftHeld = false
     private var footerSeparator: NSMenuItem?
     private var query = ""
     private var lastKeyTime: TimeInterval = -1
+
+    var previewWidth: CGFloat {
+        get { preview.panelWidth }
+        set { preview.panelWidth = newValue }
+    }
 
     private lazy var searchField: NSSearchField = {
         let field = NSSearchField(frame: NSRect(x: 12, y: 3, width: 256, height: 22))
@@ -98,6 +108,7 @@ final class HistoryMenuController: NSObject, NSMenuDelegate {
         self.onRestore = onRestore
         self.onSettings = onSettings
         self.onQuit = onQuit
+        self.preview = PreviewPanelController(store: store)
         super.init()
         menu.delegate = self
         menu.autoenablesItems = false
@@ -109,7 +120,7 @@ final class HistoryMenuController: NSObject, NSMenuDelegate {
 
         if !store.entries.isEmpty {
             menu.addItem(searchItem)
-            let hint = NSMenuItem(title: "Press ⌦ or ⌥⌫ to remove highlighted item", action: nil, keyEquivalent: "")
+            let hint = NSMenuItem(title: "Hold ⇧ to preview, ⌦ or ⌥⌫ to remove", action: nil, keyEquivalent: "")
             hint.isEnabled = false
             menu.addItem(hint)
             menu.addItem(.separator())
@@ -172,10 +183,14 @@ final class HistoryMenuController: NSObject, NSMenuDelegate {
 
     func menu(_ menu: NSMenu, willHighlight item: NSMenuItem?) {
         if let item { lastHighlighted = item }
+        previewItem = item
+        updatePreview()
     }
 
     func menuWillOpen(_ menu: NSMenu) {
         lastHighlighted = nil
+        previewItem = nil
+        shiftHeld = NSEvent.modifierFlags.contains(.shift)
         keyMonitor.start { [weak self] in self?.handleKey($0) ?? false }
         // Start with the search field focused and no row highlighted.
         RunLoop.main.perform(inModes: [.eventTracking]) { [weak self] in
@@ -188,12 +203,30 @@ final class HistoryMenuController: NSObject, NSMenuDelegate {
 
     func menuDidClose(_ menu: NSMenu) {
         keyMonitor.stop()
+        preview.teardown()
         query = ""
+    }
+
+    /// Shows the full content of the highlighted entry while Shift is held.
+    private func updatePreview() {
+        guard shiftHeld,
+              let id = previewItem?.representedObject as? HistoryEntry.ID,
+              let entry = store.entries.first(where: { $0.id == id }),
+              let window = searchField.window else {
+            preview.hide()
+            return
+        }
+        preview.show(entry: entry, menuWindow: window)
     }
 
     /// Keys may arrive via the monitor and the performKeyEquivalent fallback;
     /// the timestamp check stops one keystroke being applied twice.
     private func handleKey(_ event: NSEvent) -> Bool {
+        if event.type == .flagsChanged {
+            let held = event.modifierFlags.contains(.shift)
+            if held != shiftHeld { shiftHeld = held; updatePreview() }
+            return false  // let NSMenu see modifier changes too
+        }
         if event.timestamp == lastKeyTime { return true }
         guard processKey(event) else { return false }
         lastKeyTime = event.timestamp
@@ -206,11 +239,12 @@ final class HistoryMenuController: NSObject, NSMenuDelegate {
         if event.isDeleteKey { return removeHighlighted() }
         guard !store.entries.isEmpty else { return false }
         let mods = event.plainModifiers
+        if mods.isSubset(of: .shift), event.keyCode == 125 || event.keyCode == 126 {  // ↓ ↑, also while previewing
+            moveHighlight(down: event.keyCode == 125)
+            return true
+        }
         if mods.isEmpty {
             switch event.keyCode {
-            case 125, 126:  // ↓ ↑
-                moveHighlight(down: event.keyCode == 125)
-                return true
             case 36, 76:  // Return in search field: restore top match
                 guard currentHighlight == nil else { return false }
                 if let first = menu.items.first(where: { $0.representedObject is HistoryEntry.ID }) {
@@ -293,6 +327,8 @@ final class HistoryMenuController: NSObject, NSMenuDelegate {
             self.menu.perform(selector, with: nil)
             if let item { self.menu.perform(selector, with: item) }
             self.lastHighlighted = item
+            self.previewItem = item
+            self.updatePreview()
         }
         apply()
         RunLoop.main.perform(inModes: [.eventTracking, .common], block: apply)

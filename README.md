@@ -16,10 +16,11 @@ A small clipboard history menu-bar app for macOS. Watches the system pasteboard,
 - The search field is focused when the menu opens — just start typing. Search is case-insensitive and matches anywhere in the text (not just the start); ⌫ edits the query, Esc clears it (a second Esc closes the menu). Focus stays in the search field while typing; ↓ moves into the list, ↑ on the first row returns to search, and Return in the search field restores the top match.
 - Click or press Return to restore an entry; Esc to dismiss.
 - Press **⌦** or **⌥⌫** while an item is highlighted to remove it (focus moves to the next item, so you can keep deleting with the keyboard); hover an item for a full-text tooltip.
+- Hold **⇧ Shift** on a highlighted item to preview its full text or image in a panel beside the menu; ↑/↓ keep working while Shift is held.
 - `⌘1`–`⌘9`, `⌘0` to restore the first ten visible entries directly.
 - Configurable global hotkey (default `⌃Space`) opens the menu.
 - Handles both text and PNG/TIFF image clipboard payloads (images are stored on disk and shown with a thumbnail in the list).
-- Configurable max history (10 – 100 000 entries) and max image size (0 – 100 MB; `0` disables image capture).
+- Configurable max history (10 – 100 000 entries), max image size (0 – 100 MB; `0` disables image capture) and preview width (200 – 1200 px).
 - Per-item removal (⌦ or ⌥⌫) and a "Clear history…" action in Settings.
 - Optional **Launch at startup** toggle (uses `SMAppService`).
 
@@ -66,7 +67,7 @@ swift run
 
 ## Where things are stored
 
-- `~/Library/Application Support/CopyTrail/config.json` — `maxHistory`, `maxImageMB`
+- `~/Library/Application Support/CopyTrail/config.json` — `maxHistory`, `maxImageMB`, `previewWidth`
 - `~/Library/Application Support/CopyTrail/history.json` — entry list
 - `~/Library/Application Support/CopyTrail/images/<sha>.png` — image payloads (deduplicated by SHA-256)
 
@@ -82,6 +83,9 @@ Sources/CopyTrail/
   AppDelegate.swift                wires everything together
   StatusItemController.swift       NSStatusItem + menu
   HistoryMenuController.swift      native NSMenu with history items
+  PreviewPanelController.swift     Shift-preview panel beside the menu
+  PreviewContentView.swift         SwiftUI text/image preview content
+  VisualEffectView.swift           NSVisualEffectView wrapper for the preview background
   ClipboardWatcher.swift           NSPasteboard.changeCount poller
   HistoryStore.swift               ObservableObject; on-disk JSON + images
   Config.swift                     persisted preferences

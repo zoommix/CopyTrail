@@ -8,6 +8,7 @@ struct SettingsView: View {
 
     @State private var draftMaxHistory: Int = Config.defaultMaxHistory
     @State private var draftMaxImageMB: Int = Config.defaultMaxImageMB
+    @State private var draftPreviewWidth: Int = Config.defaultPreviewWidth
     @State private var launchAtStartup: Bool = false
     @State private var error: String?
     @State private var showClearConfirm = false
@@ -35,6 +36,17 @@ struct SettingsView: View {
                             title: "Max image size (MB)",
                             binding: $draftMaxImageMB,
                             help: draftMaxImageMB == 0 ? "Images won't be captured" : nil
+                        )
+                    }
+                    Stepper(
+                        value: $draftPreviewWidth,
+                        in: Config.minPreviewWidth...Config.maxPreviewWidth,
+                        step: 50
+                    ) {
+                        labeledNumber(
+                            title: "Preview width (px)",
+                            binding: $draftPreviewWidth,
+                            help: "Shown while holding ⇧ in the menu"
                         )
                     }
                 }
@@ -73,6 +85,7 @@ struct SettingsView: View {
         .onAppear {
             draftMaxHistory = config.maxHistory
             draftMaxImageMB = config.maxImageMB
+            draftPreviewWidth = config.previewWidth
             launchAtStartup = LoginItem.isEnabled
         }
         .confirmationDialog(
@@ -121,8 +134,16 @@ struct SettingsView: View {
             error = "Max image size must be \(Config.minMaxImageMB)–\(Config.maxMaxImageMB) MB"
             return
         }
+        guard
+            draftPreviewWidth >= Config.minPreviewWidth,
+            draftPreviewWidth <= Config.maxPreviewWidth
+        else {
+            error = "Preview width must be \(Config.minPreviewWidth)–\(Config.maxPreviewWidth) px"
+            return
+        }
         config.setMaxHistory(draftMaxHistory)
         config.setMaxImageMB(draftMaxImageMB)
+        config.setPreviewWidth(draftPreviewWidth)
         onClose()
     }
 }

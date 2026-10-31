@@ -54,6 +54,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         statusItem = StatusItemController(menu: menuController.menu)
 
+        config.$previewWidth
+            .sink { [weak self] w in self?.menuController.previewWidth = CGFloat(w) }
+            .store(in: &cancellables)
+
         KeyboardShortcuts.onKeyDown(for: .showCopyTrail) { [weak self] in
             self?.toggleFromHotkey()
         }
