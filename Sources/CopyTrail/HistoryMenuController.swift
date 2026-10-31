@@ -6,7 +6,7 @@ private extension NSEvent {
         modifierFlags.intersection(.deviceIndependentFlagsMask).subtracting([.capsLock, .numericPad, .function])
     }
 
-    /// ⌦ or ⌥⌫ (plain ⌫ edits the search query).
+    /// ⌦ or ⌥⌫ (plain ⌫ also removes when a row is highlighted, see `processKey`).
     var isDeleteKey: Bool {
         keyCode == 117 || (keyCode == 51 && plainModifiers == .option)
     }
@@ -120,7 +120,7 @@ final class HistoryMenuController: NSObject, NSMenuDelegate {
 
         if !store.entries.isEmpty {
             menu.addItem(searchItem)
-            let hint = NSMenuItem(title: "Hold ⇧ to preview, ⌦ or ⌥⌫ to remove", action: nil, keyEquivalent: "")
+            let hint = NSMenuItem(title: "Hold ⇧ to preview, ⌫ to remove", action: nil, keyEquivalent: "")
             hint.isEnabled = false
             menu.addItem(hint)
             menu.addItem(.separator())
@@ -252,7 +252,8 @@ final class HistoryMenuController: NSObject, NSMenuDelegate {
                     restore(first)
                 }
                 return true
-            case 51:  // ⌫
+            case 51:  // ⌫ removes the highlighted row, otherwise edits the query
+                if previewItem?.representedObject is HistoryEntry.ID { return removeHighlighted() }
                 if !query.isEmpty { query.removeLast(); applyQuery() }
                 return true
             case 53 where !query.isEmpty:  // Esc clears before closing
