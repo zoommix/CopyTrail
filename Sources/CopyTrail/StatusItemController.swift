@@ -3,9 +3,7 @@ import AppKit
 final class StatusItemController {
     let statusItem: NSStatusItem
 
-    var onClick: ((NSStatusBarButton) -> Void)?
-
-    init() {
+    init(menu: NSMenu) {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
 
         if let button = statusItem.button {
@@ -15,14 +13,7 @@ final class StatusItemController {
             )
             image?.isTemplate = true
             button.image = image
-            button.target = self
-            button.action = #selector(handleClick(_:))
-            button.sendAction(on: [.leftMouseUp, .rightMouseUp])
         }
-    }
-
-    @objc private func handleClick(_ sender: Any?) {
-        guard let button = statusItem.button else { return }
-        onClick?(button)
+        statusItem.menu = menu
     }
 }

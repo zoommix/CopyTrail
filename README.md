@@ -12,17 +12,15 @@ A small clipboard history menu-bar app for macOS. Watches the system pasteboard,
 
 ## Features
 
-- Lives in the menu bar; left-click for the search dropdown, right-click for Settings / Quit.
-- Real `NSSearchField` at the top of the popup with live substring filtering.
-- Arrow keys / Return / mouse-click to restore an entry; Esc to dismiss.
-- Hold **Shift** to preview the full content of any item in a panel to the left of the popup (works with both hover and arrow-key navigation).
+- Lives in the menu bar; click for a fully native `NSMenu` of your history.
+- Click or press Return to restore an entry; Esc to dismiss.
+- Press **⌦** or **⌥⌫** while an item is highlighted to remove it (focus moves to the next item, so you can keep deleting with the keyboard); hover an item for a full-text tooltip.
 - `⌘1`–`⌘9`, `⌘0` to restore the first ten visible entries directly.
-- Configurable global hotkey (default `⌃Space`) toggles the popup.
+- Configurable global hotkey (default `⌃Space`) opens the menu.
 - Handles both text and PNG/TIFF image clipboard payloads (images are stored on disk and shown with a thumbnail in the list).
 - Configurable max history (10 – 100 000 entries) and max image size (0 – 100 MB; `0` disables image capture).
-- Per-row delete (× appears on hover) and a "Clear history…" action in Settings.
+- Per-item removal (⌦ or ⌥⌫) and a "Clear history…" action in Settings.
 - Optional **Launch at startup** toggle (uses `SMAppService`).
-- Works in fullscreen apps — the popup repositions itself so the system menu-bar zone doesn't clip it.
 
 ## Requirements
 
@@ -67,21 +65,16 @@ build-app.sh
 Sources/CopyTrail/
   main.swift                       NSApplication entry
   AppDelegate.swift                wires everything together
-  StatusItemController.swift       NSStatusItem + left/right click routing
-  HistoryPopoverController.swift   NSPopover with positioning hacks
+  StatusItemController.swift       NSStatusItem + menu
+  HistoryMenuController.swift      native NSMenu with history items
   ClipboardWatcher.swift           NSPasteboard.changeCount poller
   HistoryStore.swift               ObservableObject; on-disk JSON + images
   Config.swift                     persisted preferences
   Paths.swift                      ~/Library/Application Support helpers
-  SearchView.swift                 SwiftUI popup UI
-  SearchField.swift                NSSearchField wrapper
-  PreviewPanelController.swift     Shift-to-preview NSPanel
-  PreviewContentView.swift         SwiftUI preview content
   SettingsView.swift               SwiftUI settings form
   SettingsWindowController.swift   hosts SettingsView
   Shortcuts.swift                  KeyboardShortcuts.Name extension
   LoginItem.swift                  SMAppService wrapper
-  VisualEffectView.swift           NSVisualEffectView wrapper
   Resources/
     Info.plist                     LSUIElement = true, embedded via linker
     AppIcon.icns                   bundle icon, copied by build-app.sh
