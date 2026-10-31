@@ -24,7 +24,7 @@ final class ClipboardWatcher {
     }
 
     func stop() {
-        timer?.invalidate()
+        timer?.invalidate()	
         timer = nil
     }
 

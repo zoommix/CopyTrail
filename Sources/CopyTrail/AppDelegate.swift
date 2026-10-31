@@ -6,18 +6,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var config: Config!
     private var history: HistoryStore!
     private var watcher: ClipboardWatcher!
-    private var popover: HistoryPopoverController!
+    private var menuController: HistoryMenuController!
     private var statusItem: StatusItemController!
     private var settingsWC: SettingsWindowController?
     private var cancellables: Set<AnyCancellable> = []
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
-
-        // Warm up CGWindowList — the first call in a process returns
-        // stale/incomplete data, which made our fullscreen check fail on
-        // the first popover open. Cost: ~1 ms, once.
-        _ = CGWindowListCopyWindowInfo(.optionOnScreenOnly, kCGNullWindowID)
 
         config = Config()
         history = HistoryStore(
@@ -43,24 +38,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         watcher.start()
 
         // Seed history with whatever's currently on the clipboard so the
-        // popover isn't empty on first open.
+        // menu isn't empty on first open.
         if let existing = NSPasteboard.general.string(forType: .string), !existing.isEmpty {
             history.add(.text(existing))
         } else if let png = NSPasteboard.general.data(forType: .png) {
             history.add(.image(pngData: png))
         }
 
-        popover = HistoryPopoverController(
+        menuController = HistoryMenuController(
             store: history,
             onRestore: { [weak self] entry in self?.restore(entry) },
             onSettings: { [weak self] in self?.showSettings() },
             onQuit: { NSApp.terminate(nil) }
         )
 
-        statusItem = StatusItemController()
-        statusItem.onClick = { [weak self] button in
-            self?.popover.toggle(relativeTo: button)
-        }
+        statusItem = StatusItemController(menu: menuController.menu)
 
         KeyboardShortcuts.onKeyDown(for: .showCopyTrail) { [weak self] in
             self?.toggleFromHotkey()
@@ -94,7 +86,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func toggleFromHotkey() {
-        guard let button = statusItem.statusItem.button else { return }
-        popover.toggle(relativeTo: button)
+        statusItem.statusItem.button?.performClick(nil)
     }
 }

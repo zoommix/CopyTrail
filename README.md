@@ -12,22 +12,20 @@ A small clipboard history menu-bar app for macOS. Watches the system pasteboard,
 
 ## Features
 
-- Lives in the menu bar; left-click for the search dropdown, right-click for Settings / Quit.
-- Real `NSSearchField` at the top of the popup with live substring filtering.
-- Arrow keys / Return / mouse-click to restore an entry; Esc to dismiss.
-- Hold **Shift** to preview the full content of any item in a panel to the left of the popup (works with both hover and arrow-key navigation).
+- Lives in the menu bar; click for a fully native `NSMenu` of your history.
+- Click or press Return to restore an entry; Esc to dismiss.
+- Press **⌦** or **⌥⌫** while an item is highlighted to remove it (focus moves to the next item, so you can keep deleting with the keyboard); hover an item for a full-text tooltip.
 - `⌘1`–`⌘9`, `⌘0` to restore the first ten visible entries directly.
-- Configurable global hotkey (default `⌃Space`) toggles the popup.
+- Configurable global hotkey (default `⌃Space`) opens the menu.
 - Handles both text and PNG/TIFF image clipboard payloads (images are stored on disk and shown with a thumbnail in the list).
 - Configurable max history (10 – 100 000 entries) and max image size (0 – 100 MB; `0` disables image capture).
-- Per-row delete (× appears on hover) and a "Clear history…" action in Settings.
+- Per-item removal (⌦ or ⌥⌫) and a "Clear history…" action in Settings.
 - Optional **Launch at startup** toggle (uses `SMAppService`).
-- Works in fullscreen apps — the popup repositions itself so the system menu-bar zone doesn't clip it.
 
 ## Requirements
 
 - macOS 14 (Sonoma) or newer
-- Xcode Command Line Tools (provides Swift 5.9+ and the macOS SDK)
+- Full Xcode (Swift 5.9+). The default universal build needs `xcbuild`, and the KeyboardShortcuts dependency needs the SwiftUI preview macros. Both ship only with Xcode, not with the Command Line Tools.
 
 ## Build & install
 
@@ -36,6 +34,20 @@ A small clipboard history menu-bar app for macOS. Watches the system pasteboard,
 ```
 
 This builds the executable, assembles `CopyTrail.app`, ad-hoc-signs it, and copies it to `/Applications/CopyTrail.app`.
+
+If the build fails with `xcbuild executable … does not exist` or `plugin for module 'PreviewsMacros' not found`, the active developer directory is the Command Line Tools (check with `xcode-select -p`). Point it at Xcode, either permanently:
+
+```sh
+sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+```
+
+or for a single build:
+
+```sh
+DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer ./build-app.sh
+```
+
+`UNIVERSAL=0 ./build-app.sh` builds for the host architecture only (faster, and doesn't need `xcbuild`).
 
 To run:
 
@@ -67,21 +79,16 @@ build-app.sh
 Sources/CopyTrail/
   main.swift                       NSApplication entry
   AppDelegate.swift                wires everything together
-  StatusItemController.swift       NSStatusItem + left/right click routing
-  HistoryPopoverController.swift   NSPopover with positioning hacks
+  StatusItemController.swift       NSStatusItem + menu
+  HistoryMenuController.swift      native NSMenu with history items
   ClipboardWatcher.swift           NSPasteboard.changeCount poller
   HistoryStore.swift               ObservableObject; on-disk JSON + images
   Config.swift                     persisted preferences
   Paths.swift                      ~/Library/Application Support helpers
-  SearchView.swift                 SwiftUI popup UI
-  SearchField.swift                NSSearchField wrapper
-  PreviewPanelController.swift     Shift-to-preview NSPanel
-  PreviewContentView.swift         SwiftUI preview content
   SettingsView.swift               SwiftUI settings form
   SettingsWindowController.swift   hosts SettingsView
   Shortcuts.swift                  KeyboardShortcuts.Name extension
   LoginItem.swift                  SMAppService wrapper
-  VisualEffectView.swift           NSVisualEffectView wrapper
   Resources/
     Info.plist                     LSUIElement = true, embedded via linker
     AppIcon.icns                   bundle icon, copied by build-app.sh
