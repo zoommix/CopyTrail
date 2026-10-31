@@ -9,7 +9,8 @@ final class PreviewPanelController {
     /// Preferred width (Settings); narrowed when the screen has less room beside the menu.
     var panelWidth: CGFloat = CGFloat(Config.defaultPreviewWidth)
     private let padding: CGFloat = 10
-    private let minHeight: CGFloat = 50
+    private let imagePadding: CGFloat = 8
+    private let minHeight: CGFloat = 24
 
     init(store: HistoryStore) {
         self.store = store
@@ -20,10 +21,10 @@ final class PreviewPanelController {
         let visibleScreenRect = menuWindow.frame
         let maxHeight = visibleScreenRect.height
 
-        let width = fittedWidth(beside: visibleScreenRect, screen: menuWindow.screen)
-        let contentHeight = measureContentHeight(for: entry, width: width)
-        let panelHeight = min(max(contentHeight, minHeight), maxHeight)
-        let panelSize = NSSize(width: width, height: panelHeight)
+        let maxWidth = fittedWidth(beside: visibleScreenRect, screen: menuWindow.screen)
+        let contentSize = measureContentSize(for: entry, maxWidth: maxWidth)
+        let panelHeight = min(max(contentSize.height, minHeight), maxHeight)
+        let panelSize = NSSize(width: contentSize.width, height: panelHeight)
 
         let contentView = PreviewContentView(entry: entry, store: store)
         let hostingView = NSHostingView(rootView: contentView)
@@ -72,28 +73,28 @@ final class PreviewPanelController {
         return max(min(panelWidth, room), CGFloat(Config.minPreviewWidth))
     }
 
-    private func measureContentHeight(for entry: HistoryEntry, width panelWidth: CGFloat) -> CGFloat {
-        let insetWidth = panelWidth - padding * 2
-
+    /// Size the content actually needs, so the panel has no empty space:
+    /// text shrinks to its longest line, images are shown at most 1:1.
+    private func measureContentSize(for entry: HistoryEntry, maxWidth: CGFloat) -> NSSize {
         switch entry.kind {
         case .text:
-            let text = entry.text ?? ""
-            let font = NSFont.systemFont(ofSize: 13)
+            let text = PreviewContentView.displayText(for: entry)
+            let font = NSFont.systemFont(ofSize: PreviewContentView.fontSize)
             let boundingRect = (text as NSString).boundingRect(
-                with: NSSize(width: insetWidth, height: .greatestFiniteMagnitude),
+                with: NSSize(width: maxWidth - padding * 2, height: .greatestFiniteMagnitude),
                 options: [.usesLineFragmentOrigin, .usesFontLeading],
                 attributes: [.font: font]
             )
-            return ceil(boundingRect.height) + padding * 2
+            // +2 so SwiftUI's own layout doesn't wrap a line the measurement didn't.
+            let width = min(ceil(boundingRect.width) + 2 + padding * 2, maxWidth)
+            return NSSize(width: width, height: ceil(boundingRect.height) + padding * 2)
 
         case .image:
-            let imgPadding: CGFloat = 8
-            let availableWidth = panelWidth - imgPadding * 2
             let w = CGFloat(entry.imageWidth ?? 0)
             let h = CGFloat(entry.imageHeight ?? 0)
-            guard w > 0, h > 0 else { return minHeight }
-            let scale = min(availableWidth / w, 1.0)
-            return ceil(h * scale) + imgPadding * 2
+            guard w > 0, h > 0 else { return NSSize(width: min(160, maxWidth), height: 36) }
+            let scale = min((maxWidth - imagePadding * 2) / w, 1.0)
+            return NSSize(width: ceil(w * scale) + imagePadding * 2, height: ceil(h * scale) + imagePadding * 2)
         }
     }
 

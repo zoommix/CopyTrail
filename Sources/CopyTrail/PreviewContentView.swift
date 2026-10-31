@@ -5,7 +5,13 @@ struct PreviewContentView: View {
     let entry: HistoryEntry
     let store: HistoryStore
 
-    private let fontSize: CGFloat = 13
+    static let fontSize: CGFloat = 13
+
+    /// Text as shown (blank lines and whitespace at either end trimmed);
+    /// PreviewPanelController measures this same string.
+    static func displayText(for entry: HistoryEntry) -> String {
+        (entry.text ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+    }
 
     var body: some View {
         content
@@ -25,12 +31,9 @@ struct PreviewContentView: View {
     }
 
     private var textPreview: some View {
-        let raw = entry.text ?? ""
-        let display = raw.drop(while: { $0.isWhitespace || $0.isNewline })
-
-        return ScrollView {
-            Text(display)
-                .font(.system(size: fontSize))
+        ScrollView {
+            Text(Self.displayText(for: entry))
+                .font(.system(size: Self.fontSize))
                 .textSelection(.enabled)
                 .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -43,15 +46,18 @@ struct PreviewContentView: View {
         if let url = store.imageURL(for: entry),
            let nsImage = NSImage(contentsOf: url) {
             ScrollView {
+                // Never upscale: PreviewPanelController sizes the panel for at most 1:1.
                 Image(nsImage: nsImage)
                     .resizable()
                     .scaledToFit()
+                    .frame(maxWidth: CGFloat(entry.imageWidth ?? Int(nsImage.size.width)))
+                    .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(8)
             }
         } else {
             Text("Image not available")
                 .foregroundStyle(.secondary)
-                .font(.system(size: fontSize))
+                .font(.system(size: Self.fontSize))
                 .padding(10)
         }
     }
