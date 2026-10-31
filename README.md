@@ -13,6 +13,7 @@ A small clipboard history menu-bar app for macOS. Watches the system pasteboard,
 ## Features
 
 - Lives in the menu bar; click for a fully native `NSMenu` of your history.
+- The search field is focused when the menu opens — just start typing. Search is case-insensitive and matches anywhere in the text (not just the start); ⌫ edits the query, Esc clears it (a second Esc closes the menu). Focus stays in the search field while typing; ↓ moves into the list, ↑ on the first row returns to search, and Return in the search field restores the top match.
 - Click or press Return to restore an entry; Esc to dismiss.
 - Press **⌦** or **⌥⌫** while an item is highlighted to remove it (focus moves to the next item, so you can keep deleting with the keyboard); hover an item for a full-text tooltip.
 - `⌘1`–`⌘9`, `⌘0` to restore the first ten visible entries directly.

@@ -2,33 +2,90 @@ import AppKit
 import ImageIO
 
 private extension NSEvent {
-    /// ⌦ or ⌥⌫. Plain ⌫ is swallowed by NSMenu's type-select while tracking.
+    var plainModifiers: NSEvent.ModifierFlags {
+        modifierFlags.intersection(.deviceIndependentFlagsMask).subtracting([.capsLock, .numericPad, .function])
+    }
+
+    /// ⌦ or ⌥⌫ (plain ⌫ edits the search query).
     var isDeleteKey: Bool {
-        keyCode == 117 || (keyCode == 51
-            && modifierFlags.intersection(.deviceIndependentFlagsMask).subtracting(.capsLock) == .option)
+        keyCode == 117 || (keyCode == 51 && plainModifiers == .option)
     }
 }
 
-/// NSMenu that reports Delete / Forward-delete presses while it is tracking.
+/// NSMenu that reports key presses while it is tracking (fallback path for
+/// events that bypass `TrackingKeyMonitor`).
 final class HistoryMenu: NSMenu {
-    var onDelete: (() -> Bool)?
+    var onKeyDown: ((NSEvent) -> Bool)?
 
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
-        if event.type == .keyDown, event.isDeleteKey, onDelete?() == true { return true }
+        if event.type == .keyDown, onKeyDown?(event) == true { return true }
         return super.performKeyEquivalent(with: event)
     }
 }
 
-/// Native NSMenu showing clipboard history. Rebuilt lazily each time it opens.
+/// Pulls key events off the queue before NSMenu's tracking loop sees them, so
+/// typing never falls through to NSMenu's type-select (approach used by
+/// KeyboardShortcuts and Maccy). Unhandled events are re-posted.
+private final class TrackingKeyMonitor {
+    private var observer: CFRunLoopObserver?
+    private let mode = CFRunLoopMode(RunLoop.Mode.eventTracking.rawValue as CFString)
+
+    func start(_ handler: @escaping (NSEvent) -> Bool) {
+        stop()
+        let observer = CFRunLoopObserverCreateWithHandler(nil, CFRunLoopActivity.beforeSources.rawValue, true, 0) { _, _ in
+            // Drain first, then handle, so re-posted events aren't picked up again in this pass.
+            var events: [NSEvent] = []
+            while let event = NSApp.nextEvent(matching: [.keyDown, .keyUp], until: nil, inMode: .default, dequeue: true) {
+                events.append(event)
+            }
+            for event in events where !(event.type == .keyDown && handler(event)) {
+                NSApp.postEvent(event, atStart: false)
+            }
+        }
+        CFRunLoopAddObserver(CFRunLoopGetMain(), observer, mode)
+        self.observer = observer
+    }
+
+    func stop() {
+        if let observer { CFRunLoopRemoveObserver(CFRunLoopGetMain(), observer, mode) }
+        observer = nil
+    }
+}
+
+/// Native NSMenu showing clipboard history with an always-focused search field.
 final class HistoryMenuController: NSObject, NSMenuDelegate {
+    private static let placeholderTag = 1001
+
     private let store: HistoryStore
     private let onRestore: (HistoryEntry) -> Void
     private let onSettings: () -> Void
     private let onQuit: () -> Void
 
     let menu = HistoryMenu()
-    private var keyMonitor: Any?
+    private let keyMonitor = TrackingKeyMonitor()
     private var lastHighlighted: NSMenuItem?
+    private var footerSeparator: NSMenuItem?
+    private var query = ""
+    private var lastKeyTime: TimeInterval = -1
+
+    private lazy var searchField: NSSearchField = {
+        let field = NSSearchField(frame: NSRect(x: 12, y: 3, width: 256, height: 22))
+        field.placeholderString = "Type to search"
+        field.autoresizingMask = [.width]
+        field.target = self
+        field.action = #selector(searchFieldChanged)
+        return field
+    }()
+
+    private lazy var searchItem: NSMenuItem = {
+        let container = NSView(frame: NSRect(x: 0, y: 0, width: 280, height: 28))
+        container.autoresizingMask = [.width]
+        container.addSubview(searchField)
+        let item = NSMenuItem()
+        item.view = container
+        item.isEnabled = false
+        return item
+    }()
 
     init(
         store: HistoryStore,
@@ -43,25 +100,52 @@ final class HistoryMenuController: NSObject, NSMenuDelegate {
         super.init()
         menu.delegate = self
         menu.autoenablesItems = false
-        menu.onDelete = { [weak self] in self?.removeHighlighted() ?? false }
+        menu.onKeyDown = { [weak self] in self?.handleKey($0) ?? false }
     }
 
     func menuNeedsUpdate(_ menu: NSMenu) {
         menu.removeAllItems()
 
-        let entries = store.entries
-        if !entries.isEmpty {
+        if !store.entries.isEmpty {
+            menu.addItem(searchItem)
             let hint = NSMenuItem(title: "Press ⌦ or ⌥⌫ to remove highlighted item", action: nil, keyEquivalent: "")
             hint.isEnabled = false
             menu.addItem(hint)
             menu.addItem(.separator())
         }
-        if entries.isEmpty {
-            let empty = NSMenuItem(title: "No clipboard history yet", action: nil, keyEquivalent: "")
-            empty.isEnabled = false
-            menu.addItem(empty)
-        }
 
+        let footer = NSMenuItem.separator()
+        footerSeparator = footer
+        menu.addItem(footer)
+        let settings = NSMenuItem(title: "Settings…", action: #selector(settings), keyEquivalent: ",")
+        settings.target = self
+        menu.addItem(settings)
+        let quit = NSMenuItem(title: "Quit CopyTrail", action: #selector(quit), keyEquivalent: "q")
+        quit.target = self
+        menu.addItem(quit)
+
+        reloadEntries()
+    }
+
+    /// Replaces only the history rows, leaving the search row in place so the
+    /// field keeps focus while filtering.
+    private func reloadEntries() {
+        for item in menu.items where item.representedObject is HistoryEntry.ID || item.tag == Self.placeholderTag {
+            menu.removeItem(item)
+        }
+        if searchField.stringValue != query { searchField.stringValue = query }
+        moveCaretToEnd()
+        guard let footerSeparator else { return }
+        var index = menu.index(of: footerSeparator)
+
+        let entries = store.search(query)
+        if entries.isEmpty {
+            let title = store.entries.isEmpty ? "No clipboard history yet" : "No matches"
+            let empty = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+            empty.isEnabled = false
+            empty.tag = Self.placeholderTag
+            menu.insertItem(empty, at: index)
+        }
         for (idx, entry) in entries.enumerated() {
             let item = NSMenuItem(title: entry.preview, action: #selector(restore(_:)), keyEquivalent: "")
             item.target = self
@@ -74,16 +158,9 @@ final class HistoryMenuController: NSObject, NSMenuDelegate {
             if entry.kind == .image, let url = store.imageURL(for: entry) {
                 item.image = Self.thumbnail(at: url)
             }
-            menu.addItem(item)
+            menu.insertItem(item, at: index)
+            index += 1
         }
-
-        menu.addItem(.separator())
-        let settings = NSMenuItem(title: "Settings…", action: #selector(settings), keyEquivalent: ",")
-        settings.target = self
-        menu.addItem(settings)
-        let quit = NSMenuItem(title: "Quit CopyTrail", action: #selector(quit), keyEquivalent: "q")
-        quit.target = self
-        menu.addItem(quit)
     }
 
     @objc private func restore(_ sender: NSMenuItem) {
@@ -98,32 +175,107 @@ final class HistoryMenuController: NSObject, NSMenuDelegate {
 
     func menuWillOpen(_ menu: NSMenu) {
         lastHighlighted = nil
-        keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            guard let self else { return event }
-            if event.isDeleteKey { return self.removeHighlighted() ? nil : event }
-            if event.keyCode == 125 || event.keyCode == 126 {
-                self.advanceHighlight(down: event.keyCode == 125)
-            }
-            return event
+        keyMonitor.start { [weak self] in self?.handleKey($0) ?? false }
+        // Start with the search field focused and no row highlighted.
+        RunLoop.main.perform(inModes: [.eventTracking]) { [weak self] in
+            guard let self else { return }
+            self.searchField.window?.makeFirstResponder(self.searchField)
+            self.moveCaretToEnd()
+            self.highlight(nil)
         }
     }
 
     func menuDidClose(_ menu: NSMenu) {
-        if let keyMonitor { NSEvent.removeMonitor(keyMonitor) }
-        keyMonitor = nil
+        keyMonitor.stop()
+        query = ""
     }
 
-    /// Removes the item under the cursor / keyboard highlight. Returns true if handled.
+    /// Keys may arrive via the monitor and the performKeyEquivalent fallback;
+    /// the timestamp check stops one keystroke being applied twice.
+    private func handleKey(_ event: NSEvent) -> Bool {
+        if event.timestamp == lastKeyTime { return true }
+        guard processKey(event) else { return false }
+        lastKeyTime = event.timestamp
+        return true
+    }
+
+    /// The search field is focused while no row is highlighted; only ↑/↓ move
+    /// focus, and typing always returns it to the search field.
+    private func processKey(_ event: NSEvent) -> Bool {
+        if event.isDeleteKey { return removeHighlighted() }
+        guard !store.entries.isEmpty else { return false }
+        let mods = event.plainModifiers
+        if mods.isEmpty {
+            switch event.keyCode {
+            case 125, 126:  // ↓ ↑
+                moveHighlight(down: event.keyCode == 125)
+                return true
+            case 36, 76:  // Return in search field: restore top match
+                guard currentHighlight == nil else { return false }
+                if let first = menu.items.first(where: { $0.representedObject is HistoryEntry.ID }) {
+                    menu.cancelTracking()
+                    restore(first)
+                }
+                return true
+            case 51:  // ⌫
+                if !query.isEmpty { query.removeLast(); applyQuery() }
+                return true
+            case 53 where !query.isEmpty:  // Esc clears before closing
+                query = ""
+                applyQuery()
+                return true
+            default: break
+            }
+        }
+        guard mods.isSubset(of: .shift), let chars = event.characters, !chars.isEmpty,
+              chars.unicodeScalars.allSatisfy({ !CharacterSet.controlCharacters.contains($0)
+                  && !(0xF700...0xF8FF).contains($0.value) }) else { return false }
+        query += chars
+        applyQuery()
+        return true
+    }
+
+    private var currentHighlight: NSMenuItem? {
+        [menu.highlightedItem, lastHighlighted].compactMap { $0 }.first { menu.index(of: $0) >= 0 }
+    }
+
+    /// ↓ from the search field enters the list; ↑ on the first row returns to it.
+    private func moveHighlight(down: Bool) {
+        let rows = menu.items.filter { $0.isEnabled && !$0.isHidden && !$0.isSeparatorItem && $0.view == nil }
+        guard let current = currentHighlight, let i = rows.firstIndex(of: current) else {
+            if down { highlight(rows.first) }
+            return
+        }
+        if down {
+            if i + 1 < rows.count { highlight(rows[i + 1]) }
+        } else {
+            highlight(i == 0 ? nil : rows[i - 1])
+        }
+    }
+
+    @objc private func searchFieldChanged() {
+        guard searchField.stringValue != query else { return }
+        query = searchField.stringValue
+        applyQuery()
+    }
+
+    private func applyQuery() {
+        reloadEntries()
+        highlight(nil)  // typing keeps focus in the search field
+    }
+
+    private func moveCaretToEnd() {
+        searchField.currentEditor()?.selectedRange = NSRange(location: (query as NSString).length, length: 0)
+    }
+
+    /// Removes the highlighted entry and highlights its neighbour. Returns true if handled.
     fileprivate func removeHighlighted() -> Bool {
-        // AppKit may report no highlight (or a stale one), so fall back to the cached item.
         let entries = menu.items.filter { $0.representedObject is HistoryEntry.ID }
         guard let item = [menu.highlightedItem, lastHighlighted].compactMap({ $0 }).first(where: entries.contains),
               let id = item.representedObject as? HistoryEntry.ID,
               let index = entries.firstIndex(of: item) else { return false }
         store.remove(id)
-        // Rebuild in place, then re-highlight the neighbour so arrow keys keep
-        // working from here instead of restarting at the top/bottom.
-        menuNeedsUpdate(menu)
+        reloadEntries()
         let remaining = menu.items.filter { $0.representedObject is HistoryEntry.ID }
         highlight(remaining.isEmpty ? nil : remaining[min(index, remaining.count - 1)])
         return true
@@ -143,21 +295,6 @@ final class HistoryMenuController: NSObject, NSMenuDelegate {
         }
         apply()
         RunLoop.main.perform(inModes: [.eventTracking, .common], block: apply)
-    }
-
-    private func advanceHighlight(down: Bool) {
-        let start = (lastHighlighted ?? menu.highlightedItem).map(menu.index(of:)) ?? (down ? -1 : menu.numberOfItems)
-        let step = down ? 1 : -1
-        var index = start + step
-        while index >= 0 && index < menu.numberOfItems {
-            guard let item = menu.item(at: index) else { break }
-            if item.isEnabled && !item.isHidden && !item.isSeparatorItem {
-                lastHighlighted = item
-                return
-            }
-            index += step
-        }
-        lastHighlighted = nil
     }
 
     @objc private func settings() { onSettings() }
