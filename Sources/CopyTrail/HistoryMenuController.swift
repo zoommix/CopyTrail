@@ -34,8 +34,9 @@ private final class TrackingKeyMonitor {
         stop()
         let observer = CFRunLoopObserverCreateWithHandler(nil, CFRunLoopActivity.beforeSources.rawValue, true, 0) { _, _ in
             // Drain first, then handle, so re-posted events aren't picked up again in this pass.
+            // Drain every event type: a key-only mask makes mouse tracking in the menu lag.
             var events: [NSEvent] = []
-            while let event = NSApp.nextEvent(matching: [.keyDown, .keyUp], until: nil, inMode: .default, dequeue: true) {
+            while let event = NSApp.nextEvent(matching: .any, until: nil, inMode: .default, dequeue: true) {
                 events.append(event)
             }
             for event in events where !(event.type == .keyDown && handler(event)) {
