@@ -25,7 +25,7 @@ A small clipboard history menu-bar app for macOS. Watches the system pasteboard,
 ## Requirements
 
 - macOS 14 (Sonoma) or newer
-- Xcode Command Line Tools (provides Swift 5.9+ and the macOS SDK)
+- Full Xcode (Swift 5.9+). The default universal build needs `xcbuild`, and the KeyboardShortcuts dependency needs the SwiftUI preview macros. Both ship only with Xcode, not with the Command Line Tools.
 
 ## Build & install
 
@@ -34,6 +34,20 @@ A small clipboard history menu-bar app for macOS. Watches the system pasteboard,
 ```
 
 This builds the executable, assembles `CopyTrail.app`, ad-hoc-signs it, and copies it to `/Applications/CopyTrail.app`.
+
+If the build fails with `xcbuild executable … does not exist` or `plugin for module 'PreviewsMacros' not found`, the active developer directory is the Command Line Tools (check with `xcode-select -p`). Point it at Xcode, either permanently:
+
+```sh
+sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+```
+
+or for a single build:
+
+```sh
+DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer ./build-app.sh
+```
+
+`UNIVERSAL=0 ./build-app.sh` builds for the host architecture only (faster, and doesn't need `xcbuild`).
 
 To run:
 
